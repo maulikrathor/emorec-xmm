@@ -4,6 +4,10 @@ artifacts/
 *.wav
 *.tar.gz
 
+# Build
+build/
+dist/
+
 # Python
 __pycache__/
 *.py[cod]
