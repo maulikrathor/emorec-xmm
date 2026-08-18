@@ -1,0 +1,29 @@
+# Dataset / generated artifacts
+artifacts/
+*.mp4
+*.wav
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ML artifacts
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+
+# IDE
+.vscode/
+.idea/
