@@ -1,0 +1,49 @@
+# configs/base.yaml — single source of default truth (CLAUDE.md commandment #6).
+#
+# This is a skeleton for M0 (T-01/T-02). Only keys that are already frozen by
+# ARCHITECTURE.md are present. Every future experiment config is a MINIMAL
+# dotlist-style override layered on top of this file via `load_config`, not a
+# hand-written full copy. Later tickets add their own sections (loss weights,
+# xai, bench, serve, ...) — do not anticipate them here.
+
+run:
+  name: base                   # run identifier; run dir = artifacts/runs/{name}-{UTC timestamp}
+  seed: 42                     # passed to emorec.utils.seed_everything; headline runs use {13, 42, 2026}
+  out_dir: artifacts/runs      # base directory for run outputs
+
+data:
+  meld_root: null              # path to raw MELD data; resolved via --meld-root CLI arg > MELD_ROOT env var > this key (CC-2)
+  wav_dir: artifacts/wav        # extracted/normalized WAVs written to {wav_dir}/{split}/dia{D}_utt{U}.wav (CC-2)
+  manifest_dir: artifacts/manifests   # {split}.jsonl manifests produced by preprocessing (CC-2)
+  report_dir: artifacts/reports # metadata/media-inventory/exclusion reports (CC-2)
+  n_workers: null               # ProcessPoolExecutor worker count; null -> min(8, os.cpu_count()) (CC-2)
+  lufs_clamp_db: 20.0           # loudness-normalization gain clamp, +/- dB (BACKLOG J-02)
+  min_lufs_duration_s: 0.4      # clips shorter than this are not loudness-normalized (pyloudnorm raises below it)
+  context_k: 2                 # number of preceding dialogue turns included as text context (ARCHITECTURE.md)
+  max_text_len: 160            # max token length for the assembled context+current-turn string
+  max_audio_sec: 10.0          # audio clips truncated to this length, keeping the END (ED5)
+  sample_rate: 16000           # required sample rate for all audio (mono)
+  target_lufs: -23.0           # loudness-normalization target (pyloudnorm)
+
+model:
+  text_ckpt: roberta-base                    # frozen text encoder checkpoint (Stage 1)
+  audio_ckpt: microsoft/wavlm-base-plus       # frozen audio encoder checkpoint (Stage 1)
+  d_model: 256                                # shared projection dimension for both modalities
+  n_heads: 8                                  # attention heads in each cross-modal fusion block
+  n_fusion_blocks: 2                          # number of stacked cross-modal fusion blocks
+  num_classes: 7                              # must match emorec.data.labels.NUM_CLASSES
+  freeze_encoders: true                       # Stage 1: text/audio encoders frozen except new token rows
+
+train:
+  lr: 2.0e-4                   # AdamW learning rate
+  weight_decay: 0.01           # AdamW weight decay
+  batch_size: 8                # per-step batch size
+  grad_accum: 4                # gradient accumulation steps (effective batch size = batch_size * grad_accum)
+  max_epochs: 15                # upper bound on training epochs
+  warmup_ratio: 0.1            # fraction of total optimizer steps used for linear warmup (cosine schedule)
+  grad_clip: 1.0               # gradient-norm clipping value
+  early_stop_patience: 3       # epochs without dev weighted-F1 improvement before stopping
+  amp: true                    # use automatic mixed precision
+
+loss:
+  name: weighted_ce            # class-weighted cross-entropy (inverse-sqrt train frequency, mean-normalized)

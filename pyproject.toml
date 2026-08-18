@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emorec"
+version = "0.1.0"
+description = "Explainable multimodal (text+audio) emotion recognition on MELD."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "torch>=2.2,<3.0",
+    # transformers pinned to the 5.x line: the execution host ships 5.0.0
+    # and WavLMModel._get_feature_vector_attention_mask (required by CC-4
+    # for frame-level attention masks, docs/TRIBAL_KNOWLEDGE.md 1.2) is
+    # verified present there. A <5.0 pin would force a downgrade on both
+    # the dev machine and the execution host.
+    "transformers>=5.0,<6.0",
+    "soundfile",
+    "pyloudnorm",
+    "omegaconf",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+xai = ["captum"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
