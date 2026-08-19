@@ -1,0 +1,4 @@
+# configs/text_only.yaml — B1 baseline. A MINIMAL override of base.yaml (ED11:
+# experiments are config diffs, never hand-written full copies).
+model:
+  name: text_only

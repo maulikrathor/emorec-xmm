@@ -30,6 +30,7 @@ data:
   cache_dir: artifacts/cache    # fp16 audio feature cache root: {cache_dir}/{cache_key(audio_ckpt)}/{split}/{stem}.npz (CC-4)
 
 model:
+  name: xattn                                 # cfg.model.name -> emorec.models.registry.build_model dispatch (CC-5)
   text_ckpt: roberta-base                    # frozen text encoder checkpoint (Stage 1)
   audio_ckpt: microsoft/wavlm-base-plus       # frozen audio encoder checkpoint (Stage 1)
   d_model: 256                                # shared projection dimension for both modalities
@@ -48,6 +49,7 @@ train:
   grad_clip: 1.0               # gradient-norm clipping value
   early_stop_patience: 3       # epochs without dev weighted-F1 improvement before stopping
   amp: true                    # use automatic mixed precision
+  use_cache: true               # train against CC-4's precomputed audio feature cache by default (CC-5)
 
 loss:
   name: weighted_ce            # class-weighted cross-entropy (inverse-sqrt train frequency, mean-normalized)

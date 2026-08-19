@@ -1,0 +1,8 @@
+# configs/xattn.yaml — M: gated cross-attention fusion (the flagship model).
+# A MINIMAL override of base.yaml (ED11). base.yaml's own default is already
+# model.name: xattn; this file exists anyway so the flagship experiment has
+# its own discoverable config entrypoint (CLAUDE.md commandment #6: "new
+# experiment = new YAML in configs/"), not an implicit reliance on the base
+# default.
+model:
+  name: xattn
