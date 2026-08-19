@@ -24,6 +24,9 @@ data:
   max_audio_sec: 10.0          # audio clips truncated to this length, keeping the END (ED5)
   sample_rate: 16000           # required sample rate for all audio (mono)
   target_lufs: -23.0           # loudness-normalization target (pyloudnorm)
+  cur_token: "<cur>"           # special token wrapping the current turn in the text context string (CC-3)
+  end_cur_token: "</cur>"      # closing special token for the current turn (CC-3)
+  context_sep: "</s>"          # separator joining context turns in the text context string (CC-3)
 
 model:
   text_ckpt: roberta-base                    # frozen text encoder checkpoint (Stage 1)
