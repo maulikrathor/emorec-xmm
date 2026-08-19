@@ -28,7 +28,7 @@ from emorec.training.metrics import (
     save_confusion_matrix,
 )
 from emorec.training.trainer import evaluate as run_evaluate
-from emorec.utils.config import load_config
+from emorec.utils.config import load_experiment_config
 
 
 def _resolve_device(name: str) -> torch.device:
@@ -68,7 +68,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    cfg = load_config(args.config)
+    # load_experiment_config, not load_config: --config is a MINIMAL override
+    # of configs/base.yaml (ED11), same reasoning as scripts/train.py.
+    cfg = load_experiment_config(args.config)
     use_cache = args.use_cache if args.use_cache is not None else bool(cfg.train.use_cache)
     device = _resolve_device(args.device)
 

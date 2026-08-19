@@ -40,7 +40,7 @@ from emorec.training.metrics import (
     trivial_baseline_metrics,
 )
 from emorec.training.trainer import evaluate, fit
-from emorec.utils.config import load_config, run_dir
+from emorec.utils.config import load_experiment_config, run_dir
 from emorec.utils.seed import seed_everything
 
 
@@ -80,7 +80,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    cfg = load_config(args.config, overrides=args.overrides)
+    # load_experiment_config, not load_config: --config is a MINIMAL override
+    # of configs/base.yaml (ED11) -- e.g. configs/text_only.yaml only sets
+    # model.name, it has no run:/data:/train:/loss: sections of its own.
+    cfg = load_experiment_config(args.config, overrides=args.overrides)
 
     if args.seed is not None:
         cfg.run.seed = args.seed
