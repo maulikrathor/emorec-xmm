@@ -23,7 +23,7 @@ from emorec.models.encoders import AudioEncoder, TextEncoder
 from emorec.models.fusion import CrossModalBlock, MultimodalERC
 from emorec.models.registry import build_model
 from emorec.training.losses import build_loss
-from emorec.training.trainer import fit
+from emorec.training.trainer import evaluate, fit
 
 TEXT_VOCAB = 200
 TEXT_HIDDEN = 24
@@ -399,3 +399,39 @@ def test_tiny_subset_overfit_smoke(tmp_path: Path) -> None:
     assert last_epoch["train_loss"] < 0.1, f"train_loss did not drop below 0.1: {last_epoch}"
     assert (run_dir / "best.pt").exists()
     assert (run_dir / "run_meta.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# trainer.evaluate returns utt_ids (CC-7)
+# ---------------------------------------------------------------------------
+
+
+def test_evaluate_returns_four_values_with_utt_ids_in_dataset_order() -> None:
+    torch.manual_seed(0)
+    model = _make_fusion_model()
+
+    n = 7  # not a multiple of batch_size=3, so the last batch is short
+    items = [
+        {
+            "input_ids": torch.randint(0, TEXT_VOCAB, (5,)),
+            "audio": torch.randn(2000),
+            "label": i % 7,
+            "meta": {"utt_id": f"dev/dia{i // 3}_utt{i % 3}"},
+        }
+        for i in range(n)
+    ]
+    loader = DataLoader(
+        _TinyDataset(items),
+        batch_size=3,
+        shuffle=False,
+        collate_fn=lambda b: collate(b, pad_token_id=PAD_TOKEN_ID),
+    )
+
+    result = evaluate(model, loader)
+
+    assert len(result) == 4
+    utt_ids, y_true, y_pred, y_prob = result
+    assert utt_ids == [item["meta"]["utt_id"] for item in items]
+    assert y_true == [item["label"] for item in items]
+    assert len(y_pred) == len(y_prob) == n
+    assert all(len(p) == 7 for p in y_prob)

@@ -1,0 +1,3 @@
+# configs/concat.yaml — B3 baseline. A MINIMAL override of base.yaml (ED11).
+model:
+  name: concat

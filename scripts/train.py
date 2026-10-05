@@ -5,19 +5,21 @@ Usage:
         --train-manifest artifacts/manifests/train.jsonl \\
         --dev-manifest artifacts/manifests/dev.jsonl [--subset-n N] \\
         [--seed 42] [--epochs N] [--device auto] [--use-cache | --no-use-cache] \\
-        [dotlist.override=value ...]
+        [--allow-test] [dotlist.override=value ...]
 
 Builds datasets (cached audio via CC-4's disk cache by default,
 `cfg.train.use_cache`), the model via `emorec.models.registry.build_model`,
 the loss with TRAIN-split-only class counts, then runs
 `emorec.training.trainer.fit`. Writes
-`artifacts/runs/<name>-<ts>/{metrics.json,confusion_matrix.png,
-classification_report.txt,best.pt,last.pt,run_meta.json}`. Prints the
+`artifacts/runs/<model>-seed<seed>-<ts>/{metrics.json,confusion_matrix.png,
+classification_report.txt,predictions_dev.jsonl,best.pt,last.pt,run_meta.json}`.
+The text-only baseline (B1) never loads audio or the audio cache. Prints the
 trivial all-neutral baseline metrics alongside the trained model's dev
 result — the honesty anchor (docs/CLAUDE.md commandment #9).
 """
 
 import argparse
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -39,7 +41,7 @@ from emorec.training.metrics import (
     save_confusion_matrix,
     trivial_baseline_metrics,
 )
-from emorec.training.trainer import evaluate, fit
+from emorec.training.trainer import evaluate, fit, save_predictions
 from emorec.utils.config import load_experiment_config, run_dir
 from emorec.utils.seed import seed_everything
 
@@ -56,6 +58,9 @@ def _class_counts(dataset, num_classes: int) -> list[int]:
 
 
 def _build_dataset(manifest: str, cfg, use_cache: bool, tokenizer=None, subset_indices=None):
+    if cfg.model.name == "text_only":
+        # B1 never touches audio: no WAV reads, no audio-cache dependency.
+        return MeldDataset(manifest, cfg, tokenizer=tokenizer, subset_indices=subset_indices, load_audio=False)
     if use_cache:
         return CachedAudioMeldDataset(
             manifest, cfg, tokenizer=tokenizer, subset_indices=subset_indices, use_cache=True
@@ -74,6 +79,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--use-cache", dest="use_cache", action="store_true", default=None)
     parser.add_argument("--no-use-cache", dest="use_cache", action="store_false")
+    parser.add_argument(
+        "--allow-test",
+        action="store_true",
+        help="Required if a train/dev manifest path contains 'test' (A6 discipline).",
+    )
     parser.add_argument("overrides", nargs="*", help="OmegaConf dotlist overrides, e.g. train.lr=1e-4")
     return parser.parse_args(argv)
 
@@ -90,11 +100,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.epochs is not None:
         cfg.train.max_epochs = args.epochs
     use_cache = args.use_cache if args.use_cache is not None else bool(cfg.train.use_cache)
-
-    seed_everything(cfg.run.seed)
+    if cfg.model.name == "text_only":
+        use_cache = False  # B1 uses MeldDataset(load_audio=False) + the plain collate (see _build_dataset)
 
     train_manifest = args.train_manifest or str(Path(cfg.data.manifest_dir) / "train.jsonl")
     dev_manifest = args.dev_manifest or str(Path(cfg.data.manifest_dir) / "dev.jsonl")
+
+    # A6 test-split discipline: the test split must never become a training or
+    # model-selection set. Same policy as scripts/evaluate.py's guard, applied
+    # to BOTH manifests train.py consumes.
+    for flag, manifest in (("--train-manifest", train_manifest), ("--dev-manifest", dev_manifest)):
+        if "test" in manifest.lower() and not args.allow_test:
+            print(
+                f"REFUSING to train: {flag} {manifest!r} contains 'test'.\n"
+                "Test-split discipline (A6): dev drives every decision (model selection, early "
+                "stopping); test is evaluated ONCE per final model via scripts/evaluate.py, never "
+                "used here. Pass --allow-test only if this path is a false positive.",
+                file=sys.stderr,
+            )
+            return 2
+
+    seed_everything(cfg.run.seed)
+    # Informative run dir: run_dir() names it f"{cfg.run.name}-{UTC ts}", so set the
+    # name here (utils/config.py's contract is unchanged): {model}-seed{seed}-{ts}.
+    cfg.run.name = f"{cfg.model.name}-seed{cfg.run.seed}"
 
     device = _resolve_device(args.device)
 
@@ -137,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     # happened to leave in memory.
     model.load_state_dict(torch.load(rdir / "best.pt", map_location=device))
 
-    y_true, y_pred, _y_prob = evaluate(model, dev_loader, device=device)
+    utt_ids, y_true, y_pred, y_prob = evaluate(model, dev_loader, device=device)
+    save_predictions(rdir / "predictions_dev.jsonl", utt_ids, y_true, y_pred, y_prob)
     dev_metrics = compute_metrics(y_true, y_pred)
     trivial_metrics = trivial_baseline_metrics(y_true)
 

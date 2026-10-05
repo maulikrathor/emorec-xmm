@@ -41,6 +41,9 @@ def _resolve_device(name: str) -> torch.device:
 
 def _build_dataset(manifest: str, cfg, use_cache: bool):
     """Same construction pattern as scripts/train.py's `_build_dataset`."""
+    if cfg.model.name == "text_only":
+        # B1 never touches audio: no WAV reads, no audio-cache dependency.
+        return MeldDataset(manifest, cfg, load_audio=False)
     if use_cache:
         return CachedAudioMeldDataset(manifest, cfg, use_cache=True)
     return MeldDataset(manifest, cfg, load_audio=True)
@@ -111,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = load_experiment_config(args.config)
     use_cache = args.use_cache if args.use_cache is not None else bool(cfg.train.use_cache)
+    if cfg.model.name == "text_only":
+        use_cache = False  # plain MeldDataset(load_audio=False) + plain collate
     device = _resolve_device(args.device)
 
     dataset = _build_dataset(args.manifest, cfg, use_cache)

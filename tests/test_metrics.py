@@ -1,5 +1,7 @@
 """Tests for emorec.training.metrics and (bundled per the CC-5 test-file list) emorec.training.losses."""
 
+import json
+from math import comb
 from pathlib import Path
 
 import numpy as np
@@ -13,11 +15,16 @@ from emorec.data.labels import EMOTION_TO_ID, ID_TO_EMOTION, NUM_CLASSES
 from emorec.training.losses import build_loss
 from emorec.training.metrics import (
     ALL_LABELS,
+    align_predictions,
+    bootstrap_ci,
     classification_report_text,
     compute_metrics,
+    load_predictions,
+    mcnemar,
     save_confusion_matrix,
     trivial_baseline_metrics,
 )
+from emorec.training.trainer import save_predictions
 
 # ---------------------------------------------------------------------------
 # compute_metrics
@@ -136,3 +143,132 @@ def test_build_loss_rejects_unknown_loss_name() -> None:
     cfg = OmegaConf.create({"loss": {"name": "focal"}})
     with pytest.raises(ValueError):
         build_loss(cfg, [10, 10, 10])
+
+
+# ---------------------------------------------------------------------------
+# CC-7: persisted predictions, bootstrap CI, McNemar (ED12)
+# ---------------------------------------------------------------------------
+
+
+def _write_preds(path: Path, utt_ids: list[str], y_true: list[int], y_pred: list[int]) -> None:
+    probs = [[1.0 if c == p else 0.0 for c in range(7)] for p in y_pred]
+    save_predictions(path, utt_ids, y_true, y_pred, probs)
+
+
+def test_save_predictions_exact_schema_and_round_trip(tmp_path: Path) -> None:
+    utt_ids = ["dev/dia0_utt0", "dev/dia0_utt1", "dev/dia1_utt0"]
+    y_true = [0, 3, 6]
+    y_pred = [0, 4, 6]
+    raw = np.random.default_rng(0).random((3, 7))
+    y_prob = (raw / raw.sum(axis=1, keepdims=True)).tolist()
+
+    path = tmp_path / "sub" / "predictions_dev.jsonl"
+    save_predictions(path, utt_ids, y_true, y_pred, y_prob)
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 3
+    for line, uid, label, pred, probs in zip(lines, utt_ids, y_true, y_pred, y_prob, strict=True):
+        row = json.loads(line)
+        assert list(row) == ["utt_id", "label", "pred", "probs"]  # fixed key order
+        assert row["utt_id"] == uid and row["label"] == label and row["pred"] == pred
+        assert len(row["probs"]) == 7
+        assert row["probs"] == [round(p, 6) for p in probs]
+
+    ids2, true2, pred2, prob2 = load_predictions(path)
+    assert ids2 == utt_ids and true2 == y_true and pred2 == y_pred
+    for got, want in zip(prob2, y_prob, strict=True):
+        assert got == pytest.approx(want, abs=1e-6)
+
+
+def test_save_predictions_rejects_length_mismatch(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="length mismatch"):
+        save_predictions(tmp_path / "p.jsonl", ["a", "b"], [0], [0, 1], [[0.0] * 7, [0.0] * 7])
+
+
+def test_bootstrap_ci_point_matches_compute_metrics_and_brackets_it() -> None:
+    rng = np.random.default_rng(0)
+    y_true = rng.integers(0, 7, size=300).tolist()
+    y_pred = [t if rng.random() < 0.6 else int(rng.integers(0, 7)) for t in y_true]
+    expected = compute_metrics(y_true, y_pred)
+
+    for metric in ("weighted_f1", "macro_f1", "accuracy"):
+        ci = bootstrap_ci(y_true, y_pred, metric=metric, n=200, seed=1)
+        assert ci["point"] == pytest.approx(expected[metric])
+        assert ci["lo"] <= ci["point"] <= ci["hi"]
+        assert ci["lo"] < ci["hi"]
+
+
+def test_bootstrap_ci_same_seed_identical_and_different_seed_differs() -> None:
+    rng = np.random.default_rng(3)
+    y_true = rng.integers(0, 7, size=200).tolist()
+    y_pred = [t if rng.random() < 0.5 else int(rng.integers(0, 7)) for t in y_true]
+
+    a = bootstrap_ci(y_true, y_pred, n=200, seed=7)
+    b = bootstrap_ci(y_true, y_pred, n=200, seed=7)
+    c = bootstrap_ci(y_true, y_pred, n=200, seed=8)
+    assert a == b
+    assert (a["lo"], a["hi"]) != (c["lo"], c["hi"])
+
+
+def test_bootstrap_ci_perfect_predictions_collapse_to_one() -> None:
+    y = [0, 1, 2, 3, 4, 5, 6] * 5
+    ci = bootstrap_ci(y, y, metric="accuracy", n=50, seed=0)
+    assert ci == {"point": 1.0, "lo": 1.0, "hi": 1.0}
+
+
+def test_bootstrap_ci_rejects_unknown_metric() -> None:
+    with pytest.raises(ValueError, match="unknown metric"):
+        bootstrap_ci([0, 1], [0, 1], metric="bleu")
+
+
+def test_mcnemar_matches_hand_calculation() -> None:
+    # 20 items. A-correct/B-wrong on 8 (n01), A-wrong/B-correct on 2 (n10),
+    # both right on 6, both wrong on 4.
+    y_true = [0] * 20
+    pred_a = [0] * 8 + [1] * 2 + [0] * 6 + [1] * 4
+    pred_b = [1] * 8 + [0] * 2 + [0] * 6 + [1] * 4
+
+    result = mcnemar(y_true, pred_a, pred_b)
+
+    assert result["n01"] == 8
+    assert result["n10"] == 2
+    assert result["n_discordant"] == 10
+    assert result["statistic"] == 2  # min(n01, n10)
+    # Exact two-sided binomial: 2 * P(X <= 2 | n=10, p=0.5) = 112 / 1024
+    hand = 2 * sum(comb(10, k) for k in range(3)) / 2**10
+    assert result["p_value"] == pytest.approx(hand)
+    assert result["p_value"] == pytest.approx(0.109375)
+
+
+def test_mcnemar_identical_predictors_give_p_one() -> None:
+    y_true = [0, 1, 2, 3, 4, 5, 6, 0]
+    pred = [0, 1, 2, 0, 0, 5, 6, 1]
+    result = mcnemar(y_true, pred, list(pred))
+    assert result["n_discordant"] == 0
+    assert result["n01"] == result["n10"] == 0
+    assert result["p_value"] == 1.0
+
+
+def test_align_predictions_reorders_to_a_common_order(tmp_path: Path) -> None:
+    ids = ["dev/dia0_utt0", "dev/dia0_utt1", "dev/dia1_utt0"]
+    path_a = tmp_path / "a.jsonl"
+    path_b = tmp_path / "b.jsonl"
+    _write_preds(path_a, ids, [0, 1, 2], [0, 1, 1])
+    # B lists the same utterances in reverse order.
+    _write_preds(path_b, ids[::-1], [2, 1, 0], [2, 0, 0])
+
+    y_true, pred_a, pred_b = align_predictions(path_a, path_b)
+
+    assert y_true == [0, 1, 2]
+    assert pred_a == [0, 1, 1]
+    assert pred_b == [0, 0, 2]  # B's predictions re-keyed to A's id order
+
+
+def test_align_predictions_raises_when_utt_id_sets_differ(tmp_path: Path) -> None:
+    path_a = tmp_path / "a.jsonl"
+    path_b = tmp_path / "b.jsonl"
+    _write_preds(path_a, ["dev/dia0_utt0", "dev/dia0_utt1", "dev/dia0_utt2"], [0, 1, 2], [0, 1, 2])
+    _write_preds(path_b, ["dev/dia0_utt0", "dev/dia0_utt1", "dev/dia0_utt9"], [0, 1, 2], [0, 1, 2])
+
+    with pytest.raises(ValueError, match=r"utt_id sets differ: 1 only in .* 1 only in"):
+        align_predictions(path_a, path_b)

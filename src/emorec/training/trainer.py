@@ -26,18 +26,22 @@ from emorec.utils.log import JsonlLogger
 
 def evaluate(
     model: nn.Module, loader: DataLoader, device: torch.device | None = None
-) -> tuple[list[int], list[int], list[list[float]]]:
+) -> tuple[list[str], list[int], list[int], list[list[float]]]:
     """Run `model` over every batch in `loader` in `eval()`/`no_grad()`, aligned by example order.
 
-    Returns `(y_true, y_pred, y_prob)` as plain Python lists/lists-of-lists
-    (never tensors) so callers never need to know which device the model
-    ran on. `device` defaults to the model's own device (its first
-    parameter's `.device`) if not given.
+    Returns `(utt_ids, y_true, y_pred, y_prob)` as plain Python lists/
+    lists-of-lists (never tensors) so callers never need to know which
+    device the model ran on. `utt_ids[i]` is `batch.meta[i]["utt_id"]`, in
+    the loader's iteration order, so predictions can be paired across runs
+    by id (`save_predictions`, `metrics.align_predictions`). `device`
+    defaults to the model's own device (its first parameter's `.device`)
+    if not given.
     """
     if device is None:
         device = next(model.parameters()).device
     model.eval()
 
+    utt_ids: list[str] = []
     y_true: list[int] = []
     y_pred: list[int] = []
     y_prob: list[list[float]] = []
@@ -48,11 +52,45 @@ def evaluate(
             output = model(batch)
             probs = torch.softmax(output.logits, dim=-1)
             preds = probs.argmax(dim=-1)
+            utt_ids.extend(m["utt_id"] for m in batch.meta)
             y_true.extend(batch.label.detach().cpu().tolist())
             y_pred.extend(preds.detach().cpu().tolist())
             y_prob.extend(probs.detach().cpu().tolist())
 
-    return y_true, y_pred, y_prob
+    return utt_ids, y_true, y_pred, y_prob
+
+
+def save_predictions(
+    path: str | Path,
+    utt_ids: list[str],
+    y_true: list[int],
+    y_pred: list[int],
+    y_prob: list[list[float]],
+) -> None:
+    """Write per-utterance predictions as JSONL, one line per utterance, in the given order.
+
+    Schema (keys in this fixed order): `{"utt_id": str, "label": int,
+    "pred": int, "probs": [7 floats]}`, `probs` rounded to 6 decimal places.
+    This is the paired-prediction artifact bootstrap CIs and McNemar
+    (ED12, docs/EVALUATION.md section 4) are computed from. All four
+    sequences must have equal length; raises `ValueError` otherwise.
+    """
+    n = len(utt_ids)
+    if not (len(y_true) == len(y_pred) == len(y_prob) == n):
+        raise ValueError(
+            f"length mismatch: utt_ids={n}, y_true={len(y_true)}, y_pred={len(y_pred)}, y_prob={len(y_prob)}"
+        )
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for uid, label, pred, probs in zip(utt_ids, y_true, y_pred, y_prob, strict=True):
+            row = {
+                "utt_id": str(uid),
+                "label": int(label),
+                "pred": int(pred),
+                "probs": [round(float(p), 6) for p in probs],
+            }
+            f.write(json.dumps(row) + "\n")
 
 
 def _lr_lambda(step: int, warmup_steps: int, total_steps: int) -> float:
@@ -168,7 +206,7 @@ def fit(
 
         train_loss = epoch_loss_sum / max(1, epoch_loss_count)
 
-        y_true, y_pred, _y_prob = evaluate(model, dev_loader, device=device)
+        _utt_ids, y_true, y_pred, _y_prob = evaluate(model, dev_loader, device=device)
         dev_metrics = compute_metrics(y_true, y_pred)
 
         print(

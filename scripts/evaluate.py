@@ -28,6 +28,7 @@ from emorec.training.metrics import (
     save_confusion_matrix,
 )
 from emorec.training.trainer import evaluate as run_evaluate
+from emorec.training.trainer import save_predictions
 from emorec.utils.config import load_experiment_config
 
 
@@ -74,7 +75,11 @@ def main(argv: list[str] | None = None) -> int:
     use_cache = args.use_cache if args.use_cache is not None else bool(cfg.train.use_cache)
     device = _resolve_device(args.device)
 
-    if use_cache:
+    if cfg.model.name == "text_only":
+        # B1 never touches audio: no WAV reads, no audio-cache dependency.
+        ds = MeldDataset(args.manifest, cfg, load_audio=False)
+        collate_fn = make_collate_fn(ds.tokenizer)
+    elif use_cache:
         ds = CachedAudioMeldDataset(args.manifest, cfg, use_cache=True)
         collate_fn = make_collate_fn_cached(ds.tokenizer)
     else:
@@ -88,10 +93,11 @@ def main(argv: list[str] | None = None) -> int:
     model = build_model(cfg, tokenizer_len, new_token_ids).to(device)
     model.load_state_dict(torch.load(args.ckpt, map_location=device))
 
-    y_true, y_pred, _y_prob = run_evaluate(model, loader, device=device)
+    utt_ids, y_true, y_pred, y_prob = run_evaluate(model, loader, device=device)
     metrics = compute_metrics(y_true, y_pred)
 
     out_dir = Path(args.ckpt).parent
+    save_predictions(out_dir / f"predictions_{args.split}.jsonl", utt_ids, y_true, y_pred, y_prob)
     save_confusion_matrix(
         metrics["confusion_matrix"],
         out_dir / f"confusion_matrix_{args.split}.png",
