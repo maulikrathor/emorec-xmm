@@ -1,0 +1,42 @@
+{
+  "dev": {
+    "excluded_total": 1,
+    "exclusions_by_reason": {
+      "MEDIA_MISSING": 1
+    },
+    "labeled_rows": 1109,
+    "normalisation": {
+      "clamped": 7,
+      "peak_limited": 5,
+      "skipped_short": 28,
+      "skipped_silent": 0
+    },
+    "written": 1108
+  },
+  "test": {
+    "excluded_total": 0,
+    "exclusions_by_reason": {},
+    "labeled_rows": 2610,
+    "normalisation": {
+      "clamped": 23,
+      "peak_limited": 9,
+      "skipped_short": 68,
+      "skipped_silent": 0
+    },
+    "written": 2610
+  },
+  "train": {
+    "excluded_total": 1,
+    "exclusions_by_reason": {
+      "FFMPEG_FAILED": 1
+    },
+    "labeled_rows": 9989,
+    "normalisation": {
+      "clamped": 91,
+      "peak_limited": 63,
+      "skipped_short": 212,
+      "skipped_silent": 1
+    },
+    "written": 9988
+  }
+}

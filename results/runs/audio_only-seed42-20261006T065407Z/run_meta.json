@@ -1,0 +1,62 @@
+{
+  "split_names": {
+    "train": "artifacts/manifests/train.jsonl",
+    "dev": "artifacts/manifests/dev.jsonl"
+  },
+  "subset_size": null,
+  "seed": 42,
+  "model_name": "audio_only",
+  "config": {
+    "run": {
+      "name": "audio_only-seed42",
+      "seed": 42,
+      "out_dir": "artifacts/runs"
+    },
+    "data": {
+      "meld_root": null,
+      "wav_dir": "artifacts/wav",
+      "manifest_dir": "artifacts/manifests",
+      "report_dir": "artifacts/reports",
+      "n_workers": null,
+      "lufs_clamp_db": 20.0,
+      "min_lufs_duration_s": 0.4,
+      "context_k": 2,
+      "max_text_len": 160,
+      "max_audio_sec": 10.0,
+      "sample_rate": 16000,
+      "target_lufs": -23.0,
+      "cur_token": "<cur>",
+      "end_cur_token": "</cur>",
+      "context_sep": "</s>",
+      "cache_dir": "artifacts/cache"
+    },
+    "model": {
+      "name": "audio_only",
+      "text_ckpt": "roberta-base",
+      "audio_ckpt": "microsoft/wavlm-base-plus",
+      "d_model": 256,
+      "n_heads": 8,
+      "n_fusion_blocks": 2,
+      "num_classes": 7,
+      "freeze_encoders": true
+    },
+    "train": {
+      "lr": 0.0002,
+      "weight_decay": 0.01,
+      "batch_size": 8,
+      "grad_accum": 4,
+      "max_epochs": 10,
+      "warmup_ratio": 0.1,
+      "grad_clip": 1.0,
+      "early_stop_patience": 3,
+      "amp": true,
+      "use_cache": true
+    },
+    "loss": {
+      "name": "weighted_ce"
+    }
+  },
+  "git_sha": "efb2451c6932716fd64582b5f97f4e9310b4f15f",
+  "epoch_count": 10,
+  "wall_time_s": 367.15790724754333
+}

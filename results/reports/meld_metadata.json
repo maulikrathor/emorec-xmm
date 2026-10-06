@@ -1,0 +1,408 @@
+{
+  "generated_at": "2026-08-19T06:06:54.212905+00:00",
+  "row_counts": {
+    "train": 9989,
+    "dev": 1109,
+    "test": 2610
+  },
+  "emotion_counts": {
+    "train": {
+      "neutral": 4710,
+      "joy": 1743,
+      "sadness": 683,
+      "anger": 1109,
+      "surprise": 1205,
+      "fear": 268,
+      "disgust": 271
+    },
+    "dev": {
+      "neutral": 470,
+      "joy": 163,
+      "sadness": 111,
+      "anger": 153,
+      "surprise": 150,
+      "fear": 40,
+      "disgust": 22
+    },
+    "test": {
+      "neutral": 1256,
+      "joy": 402,
+      "sadness": 208,
+      "anger": 345,
+      "surprise": 281,
+      "fear": 50,
+      "disgust": 68
+    }
+  },
+  "emotion_pct": {
+    "train": {
+      "neutral": 47.15,
+      "joy": 17.45,
+      "sadness": 6.84,
+      "anger": 11.1,
+      "surprise": 12.06,
+      "fear": 2.68,
+      "disgust": 2.71
+    },
+    "dev": {
+      "neutral": 42.38,
+      "joy": 14.7,
+      "sadness": 10.01,
+      "anger": 13.8,
+      "surprise": 13.53,
+      "fear": 3.61,
+      "disgust": 1.98
+    },
+    "test": {
+      "neutral": 48.12,
+      "joy": 15.4,
+      "sadness": 7.97,
+      "anger": 13.22,
+      "surprise": 10.77,
+      "fear": 1.92,
+      "disgust": 2.61
+    }
+  },
+  "utterance_length_stats": {
+    "train": {
+      "chars": {
+        "mean": 40.07,
+        "median": 32.0,
+        "min": 1.0,
+        "max": 327.0
+      },
+      "tokens": {
+        "mean": 7.96,
+        "median": 6.0,
+        "min": 1.0,
+        "max": 69.0
+      }
+    },
+    "dev": {
+      "chars": {
+        "mean": 39.77,
+        "median": 33.0,
+        "min": 1.0,
+        "max": 181.0
+      },
+      "tokens": {
+        "mean": 7.92,
+        "median": 6.0,
+        "min": 1.0,
+        "max": 37.0
+      }
+    },
+    "test": {
+      "chars": {
+        "mean": 41.43,
+        "median": 33.0,
+        "min": 2.0,
+        "max": 234.0
+      },
+      "tokens": {
+        "mean": 8.22,
+        "median": 7.0,
+        "min": 1.0,
+        "max": 45.0
+      }
+    }
+  },
+  "turns_per_dialogue_stats": {
+    "train": {
+      "mean": 9.62,
+      "median": 9.0,
+      "min": 1.0,
+      "max": 24.0
+    },
+    "dev": {
+      "mean": 9.73,
+      "median": 10.0,
+      "min": 1.0,
+      "max": 23.0
+    },
+    "test": {
+      "mean": 9.32,
+      "median": 9.0,
+      "min": 1.0,
+      "max": 33.0
+    }
+  },
+  "split_integrity_duplicates": {
+    "count": 5,
+    "examples": [
+      {
+        "key": [
+          6,
+          4,
+          "00:10:18,743",
+          "00:10:21,536"
+        ],
+        "occurrences": [
+          {
+            "split": "train",
+            "utt_id": "train/dia12_utt7"
+          },
+          {
+            "split": "test",
+            "utt_id": "test/dia85_utt0"
+          }
+        ]
+      },
+      {
+        "key": [
+          6,
+          4,
+          "00:10:21,704",
+          "00:10:24,706"
+        ],
+        "occurrences": [
+          {
+            "split": "train",
+            "utt_id": "train/dia12_utt8"
+          },
+          {
+            "split": "test",
+            "utt_id": "test/dia85_utt1"
+          }
+        ]
+      },
+      {
+        "key": [
+          6,
+          24,
+          "00:20:42,741",
+          "00:20:45,159"
+        ],
+        "occurrences": [
+          {
+            "split": "train",
+            "utt_id": "train/dia53_utt0"
+          },
+          {
+            "split": "dev",
+            "utt_id": "dev/dia52_utt2"
+          }
+        ]
+      },
+      {
+        "key": [
+          8,
+          24,
+          "00:17:17,065",
+          "00:17:18,066"
+        ],
+        "occurrences": [
+          {
+            "split": "train",
+            "utt_id": "train/dia433_utt1"
+          },
+          {
+            "split": "dev",
+            "utt_id": "dev/dia77_utt0"
+          }
+        ]
+      },
+      {
+        "key": [
+          6,
+          17,
+          "00:19:26,165",
+          "00:19:29,083"
+        ],
+        "occurrences": [
+          {
+            "split": "train",
+            "utt_id": "train/dia887_utt0"
+          },
+          {
+            "split": "test",
+            "utt_id": "test/dia117_utt8"
+          }
+        ]
+      }
+    ]
+  },
+  "episode_overlap": {
+    "count": 156,
+    "examples": [
+      [
+        9,
+        23
+      ],
+      [
+        3,
+        6
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        15
+      ],
+      [
+        8,
+        22
+      ],
+      [
+        6,
+        9
+      ],
+      [
+        6,
+        23
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        5,
+        10
+      ]
+    ],
+    "note": "MELD's official splits are drawn dialogue-wise from overlapping episodes, so this is expected dataset structure and NOT a bug introduced by this pipeline. Evidence for docs/KNOWN_LIMITATIONS.md #6 (speaker priors: the same episodes/speakers recur across splits)."
+  },
+  "speaker_stats": {
+    "train": {
+      "distinct_speakers": 260,
+      "top_10": [
+        {
+          "speaker": "Joey",
+          "count": 1509
+        },
+        {
+          "speaker": "Ross",
+          "count": 1459
+        },
+        {
+          "speaker": "Rachel",
+          "count": 1435
+        },
+        {
+          "speaker": "Phoebe",
+          "count": 1321
+        },
+        {
+          "speaker": "Monica",
+          "count": 1299
+        },
+        {
+          "speaker": "Chandler",
+          "count": 1283
+        },
+        {
+          "speaker": "Janice",
+          "count": 58
+        },
+        {
+          "speaker": "Carol",
+          "count": 46
+        },
+        {
+          "speaker": "Emily",
+          "count": 43
+        },
+        {
+          "speaker": "Tag",
+          "count": 41
+        }
+      ]
+    },
+    "dev": {
+      "distinct_speakers": 47,
+      "top_10": [
+        {
+          "speaker": "Ross",
+          "count": 217
+        },
+        {
+          "speaker": "Phoebe",
+          "count": 185
+        },
+        {
+          "speaker": "Rachel",
+          "count": 164
+        },
+        {
+          "speaker": "Joey",
+          "count": 149
+        },
+        {
+          "speaker": "Monica",
+          "count": 137
+        },
+        {
+          "speaker": "Chandler",
+          "count": 101
+        },
+        {
+          "speaker": "Frank",
+          "count": 17
+        },
+        {
+          "speaker": "Carol",
+          "count": 13
+        },
+        {
+          "speaker": "All",
+          "count": 10
+        },
+        {
+          "speaker": "Susan",
+          "count": 10
+        }
+      ]
+    },
+    "test": {
+      "distinct_speakers": 100,
+      "top_10": [
+        {
+          "speaker": "Joey",
+          "count": 411
+        },
+        {
+          "speaker": "Chandler",
+          "count": 379
+        },
+        {
+          "speaker": "Ross",
+          "count": 373
+        },
+        {
+          "speaker": "Rachel",
+          "count": 356
+        },
+        {
+          "speaker": "Monica",
+          "count": 346
+        },
+        {
+          "speaker": "Phoebe",
+          "count": 291
+        },
+        {
+          "speaker": "Janice",
+          "count": 31
+        },
+        {
+          "speaker": "Emily",
+          "count": 16
+        },
+        {
+          "speaker": "Director",
+          "count": 16
+        },
+        {
+          "speaker": "Gunther",
+          "count": 13
+        }
+      ]
+    }
+  }
+}
