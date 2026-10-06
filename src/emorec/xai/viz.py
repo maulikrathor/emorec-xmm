@@ -167,3 +167,77 @@ def plot_per_class_comparison(metrics_by_model: dict, path: str | Path) -> None:
     ax.legend()
     fig.tight_layout()
     _save(fig, path)
+
+
+# ---------------------------------------------------------------------------
+# CC-9 additions: faithfulness curves and ablation bars
+# ---------------------------------------------------------------------------
+
+
+def plot_faithfulness_curves(curves_by_method: dict, path: str | Path) -> None:
+    """Comprehensiveness (left) and sufficiency (right) vs deleted/retained fraction.
+
+    `curves_by_method[name]` is `{"comprehensiveness": curve, "sufficiency":
+    curve, "random": {"comprehensiveness": curve, "sufficiency": curve}}`
+    (`"random"` optional), where a `curve` holds `fractions` and `mean` (and
+    optionally `lo`/`hi` for a CI band). The random-attribution control is drawn
+    as a dashed line in the same colour as its method. Both panels plot the
+    DROP in predicted-class probability: higher is better on the left, lower
+    is better on the right.
+    """
+    if not curves_by_method:
+        raise ValueError("curves_by_method is empty")
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharex=True)
+    titles = {
+        "comprehensiveness": "Comprehensiveness: drop after DELETING top-k%\n(higher = more faithful)",
+        "sufficiency": "Sufficiency: drop when RETAINING only top-k%\n(lower = more faithful)",
+    }
+    for ax, kind in zip(axes, ("comprehensiveness", "sufficiency"), strict=True):
+        for idx, (name, curves) in enumerate(curves_by_method.items()):
+            color = f"C{idx}"
+            c = curves[kind]
+            ax.plot(c["fractions"], c["mean"], marker="o", color=color, label=name)
+            if "lo" in c and "hi" in c:
+                ax.fill_between(c["fractions"], c["lo"], c["hi"], color=color, alpha=0.15)
+            rand = curves.get("random")
+            if rand is not None:
+                r = rand[kind]
+                ax.plot(r["fractions"], r["mean"], linestyle="--", marker="x", color=color, alpha=0.8, label=f"{name} — random")
+        ax.set_xlabel("fraction of tokens / frames")
+        ax.set_ylabel("mean drop in predicted-class probability")
+        ax.set_title(titles[kind], fontsize=10)
+        ax.axhline(0.0, color="grey", linewidth=0.6)
+    handles, labels = axes[1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=min(len(labels), 4), fontsize=8, frameon=False)
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
+    _save(fig, path)
+
+
+def plot_ablation_bars(df: pd.DataFrame, path: str | Path) -> None:
+    """Weighted-F1 and macro-F1 per ablation mode (grouped bars); the `"none"` control is highlighted.
+
+    `df` is `emorec.xai.ablation.ablation_frame`'s output (columns `mode`,
+    `weighted_f1`, `macro_f1`).
+    """
+    modes = df["mode"].tolist()
+    x = np.arange(len(modes))
+    width = 0.38
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for offset, col, label, base in ((-width / 2, "weighted_f1", "weighted-F1", "#2166ac"), (width / 2, "macro_f1", "macro-F1", "#b2182b")):
+        vals = df[col].to_numpy(dtype=float)
+        bars = ax.bar(x + offset, vals, width, label=label, color=base, alpha=0.55)
+        for bar, mode in zip(bars, modes, strict=True):
+            if mode == "none":
+                bar.set_alpha(1.0)
+                bar.set_edgecolor("black")
+                bar.set_linewidth(2.0)
+        for xi, v in zip(x + offset, vals, strict=True):
+            ax.text(xi, v + 0.005, f"{v:.3f}", ha="center", va="bottom", fontsize=8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{m}\n(control)" if m == "none" else m for m in modes])
+    ax.set_ylim(0.0, max(0.05, float(df[["weighted_f1", "macro_f1"]].to_numpy().max()) * 1.15))
+    ax.set_ylabel("F1")
+    ax.set_title("Inference-time modality ablation (same trained weights)")
+    ax.legend()
+    fig.tight_layout()
+    _save(fig, path)
