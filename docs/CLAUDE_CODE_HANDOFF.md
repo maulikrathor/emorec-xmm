@@ -5,7 +5,63 @@ is written so a FRESH Claude Code session can pick up CC-6+ work without re-deri
 anything already decided. Read this before `docs/CLAUDE.md`'s session-start protocol —
 this file is the "what happened so far," `CLAUDE.md` is the "how to work."
 
-Written at the close of CC-5, immediately before context compaction.
+Originally written at the close of CC-5; **refreshed at the close of CC-10 (the final ticket)**. Section 0 is the
+current state. Sections 1–10 are the CC-5-era record, kept for history and marked SUPERSEDED where they are stale.
+
+---
+
+## 0. CURRENT STATE (CC-10, final) — read this first
+
+**The project is complete.** All experiments are done; no further training or evaluation is planned. The architecture,
+label map, manifest schema, context format, ED5, `Output` and INV1–INV3 are unchanged since CC-5 (§3 below still holds).
+
+### Tickets since CC-5
+
+| ticket | commit | what |
+|---|---|---|
+| CC-6 | (no code ticket) | Kaggle validation: real MELD data pipeline and the three full-train runs (B1, B2, M, seed 42, ≤10 epochs) |
+| CC-7 | `2715e14` | evidence infrastructure: `trainer.evaluate` returns `utt_ids`; `save_predictions`; `bootstrap_ci`, `mcnemar`, `load_predictions`, `align_predictions` in `training/metrics.py`; run dirs `{model}-seed{seed}-{ts}`; B1 never loads audio; test-split guard in `train.py`; `configs/concat.yaml` |
+| CC-8 | `efb2451` | explainability core: `xai/ig.py` (IG text/audio via captum, one modality per pass), `xai/gate.py`, `xai/viz.py`, `scripts/run_xai.py` |
+| CC-9 | `8219204` | `xai/ablation.py` (zero/shuffle modality at inference), `xai/faithfulness.py` (comprehensiveness/sufficiency, random control, head-randomisation check), `scripts/run_ablation.py`, `scripts/run_faithfulness.py` |
+| (data) | `7c5e047` | `results/`: committed metrics, predictions, reports, figures and 20 IG attributions of the real runs |
+| CC-10 | this commit (`git log -1`) | `docs/FINAL_REPORT.md`, `scripts/make_final_figures.py`, README, KNOWN_LIMITATIONS refresh |
+
+### Where the results are
+`docs/FINAL_REPORT.md` is the write-up; every number in it is traced to a file under `results/`. Key files:
+`results/reports/final_results.md` and `statistics.md` (metrics, bootstrap CIs, McNemar), `gate_analysis.md`, `ablation.md`,
+`faithfulness.md`, `xai_examples.md`, `results/runs/*/` (per-run reports, predictions, metrics). Headline: M beats B1 on dev
+and test (test weighted-F1 0.6173 vs 0.6015; paired McNemar p = 0.021 while the CIs overlap); the gate is text-saturated
+(mean g_audio 0.0013) yet zeroing audio costs 0.0373 weighted-F1 (p = 5.43e-07), so the gate does not reflect information flow.
+
+### Current repository additions (beyond the §5 tree)
+```
+src/emorec/xai/   ig.py  gate.py  viz.py  ablation.py  faithfulness.py     (+ __init__.py exports)
+scripts/          run_xai.py  run_ablation.py  run_faithfulness.py  demo_predict.py  summarize_runs.py  make_final_figures.py
+tests/            test_xai.py  test_ablation.py  test_faithfulness.py  test_experiment_configs.py
+configs/          concat.yaml
+docs/             FINAL_REPORT.md
+results/          committed real-run artifacts (see above); results/reports/figures/final_*.png from make_final_figures.py
+```
+`scripts/` also gained `--allow-test` guards on `train.py`, `run_xai.py`, `run_ablation.py`, `run_faithfulness.py`
+(`evaluate.py` had it from CC-5). `pyproject.toml` declares `scipy`; `captum` is the `[xai]` extra.
+
+### Test and lint status
+`pytest -q` → **183 passed** (CC-9 close: 157 + 26); CC-10 added no tests. `ruff check src tests scripts` is clean. CI runs both.
+
+### Known documentation discrepancies (details in `docs/KNOWN_LIMITATIONS.md` 28–29, `docs/FINAL_REPORT.md` §3, §6)
+- Trainable parameters are **3,688,969**, not the "≈2.3 M" in `ARCHITECTURE.md` and §3 below (the cross-modal blocks use 4× feed-forward layers).
+- `results/reports/final_results.md`'s per-class table is labelled dev but holds test values; use `results/runs/*/classification_report*.txt`.
+- The script that wrote `results/reports/statistics.md` is not committed; its numbers reproduce exactly via
+  `emorec.training.metrics` (snippet in `FINAL_REPORT.md` §9).
+- Runs used `max_epochs=10` (base config says 15); the three runs record git SHA `efb2451`.
+
+### What is not built (optional future work, none blocking)
+Multi-seed runs and variance; B3 (concat) training; LoRA/Stage 2; occlusion and attention attribution; Gemini benchmark;
+ONNX export; Gradio demo. `Output.xattn` is declared but never populated, and INV3 is asserted only at encoder level.
+
+### Environment note (Windows dev machine)
+`python` on PATH may not be the interpreter that `pip`/`pytest`/`ruff` use; check `pip --version` and run scripts with the
+interpreter that has `emorec` installed. Checkpoints (`*.pt`) and the audio cache are gitignored and live only on Kaggle/the owner's machines.
 
 ---
 
@@ -18,6 +74,8 @@ with a planned IG/attention/occlusion explainability layer and a Gemini
 build-vs-buy benchmark later. Architecture is FROZEN
 (`docs/ARCHITECTURE.md`, `docs/DECISIONS.md` ED1–ED12) — no deviation without
 an ADR.
+
+> **SUPERSEDED (see §0):** the real trained results now exist and the project is complete. The text below is the CC-5-era plan.
 
 **Immediate objective (Review-1, a faculty review):** get ONE real trained
 result on real MELD data — B1 (text-only), B2 (audio-only), and M (gated
@@ -380,6 +438,8 @@ override), anything under `src/emorec/xai/`, `src/emorec/bench/`,
 
 ## 6. Current test status
 
+> **SUPERSEDED (see §0):** the suite is now 183 tests. The figures below are the CC-5 close.
+
 - **117 tests total**, all green with network+ffmpeg available.
 - **115 pass / 2 skip** with ffmpeg hidden from `PATH` (the 2 skips are both
   in `test_preprocess.py`, cleanly marked `skipif`, never fail).
@@ -405,6 +465,8 @@ override), anything under `src/emorec/xai/`, `src/emorec/bench/`,
 ---
 
 ## 7. Git state
+
+> **SUPERSEDED (see §0 for the commit history through CC-10):** the entries below describe the CC-5 close.
 
 - **Branch:** `main` (no ticket branches used; every CC-N ticket is a direct
   commit to `main`).
@@ -448,6 +510,9 @@ oversight):**
 ---
 
 ## 9. Next work
+
+> **SUPERSEDED (see §0):** this CC-6 plan was carried out on Kaggle; there is no pending work item. The list below is
+> the original plan, kept for the reproduction order.
 
 **Immediate (CC-6, or whatever the next ticket is named): Kaggle validation
 of the whole CC-1–CC-5 pipeline against REAL MELD data.** In order:
